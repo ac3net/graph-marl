@@ -9,6 +9,52 @@ The core idea is that this allows to *decouple* learning graph representations a
 
 <img src="doc/model.png" style="display: block; margin-left: auto; margin-right: auto; width:400">
 
+## WIP: Service Coordination Environment
+
+This branch provides a highly experimental and unfinished integration of the [service coordination environment by Schneider et al.](https://github.com/RealVNF/distributed-drl-coordination).
+
+### Requirements
+
+As of now, the new environment depends on two packages, `spr-rl` and `coord-sim`.
+Unfortunately, the requirements of these packages are incompatible with python 3.9 and our code base. You will need two copies of the projects
+
+1) For your main `graph-marl` environment, you can adapt their requirements as follows
+
+    ```
+    coord-sim:
+        'simpy>=4',
+        'networkx>=2.4',
+        'geopy',
+        'numpy>=1.16.5',
+        'pandas>=1.1.5',
+        'matplotlib',
+        'pyyaml'
+    spr-rl:
+        'coord-sim==2.2.1',
+        # 'tensorflow==1.14',
+        'click',
+        'stable-baselines==2.10',
+        'cloudpickle==1.2.0',
+        'numpy>=1.16.4,<=1.23.3',
+        'gym[atari]==0.15.7',
+        # 'mpi4py==3.0.3',
+        'tqdm',
+        'networkx==3.1',
+        'protobuf<=3.20.3'
+    ```
+    Tensorflow is not needed as we won't run their agent. The `src/spr_rl/agent/params.py` has to be moved to `src/spr_rl/params.py` and `src/spr_rl/__init__.py` has to be adjusted to avoid the import of tensorflow. After installing both packages, the environment should be runnable.
+
+2) To run their code, we recommend creating a separate environment with python 3.6. The direct installation according to their readme failed in our case, we had to install tensorflow via `conda install tensorflow-gpu=1.15` (with pip, running spr-rl resulted in an endless loop) and additionally `pip install opencv-python==4.5.3.56`.
+
+
+### Example commands
+
+Run (without netmon)
+```
+python src/main.py --env-type=spr --model=dqn --episode-steps=10_000 --hidden-dim=256,256 --activation-function=tanh --gamma=0.99 --lr=1e-3
+```
+
+
 ## Citation 
 
 This is the official implementation used in the paper *Towards Generalizability of Multi-Agent Reinforcement Learning in Graphs with Recurrent Message Passing* ([arXiv](https://arxiv.org/abs/2402.05027)), which has been accepted for publication at AAMAS 2024. If you use parts of this repository, please consider citing

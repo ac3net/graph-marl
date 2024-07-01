@@ -65,6 +65,12 @@ class NetworkEnv(abc.ABC):
         """
         return self
 
+    def get_netmon_rounds_in_step(self) -> int:
+        """
+        Number of netmon rounds in this step with current node observation
+        """
+        return 1
+
     def get_final_info(self, info: Dict[str, Any]):
         """
         Get additional info at the end of an episode that's not included in the step

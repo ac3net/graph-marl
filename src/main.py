@@ -17,8 +17,6 @@ from eval import evaluate
 from replaybuffer import ReplayBuffer
 from model import DGN, DQNR, DQN, MLP, CommNet, NetMon
 from env.routing import Routing
-import random
-from sprinterface.state import SPRState
 
 from env.simple_environment import SimpleEnvironment
 from env.wrapper import NetMonWrapper
@@ -425,24 +423,6 @@ network = Network(
     excluded_seeds=None if args.train_topology_allow_eval_seed else EVAL_SEEDS,
 )
 
-agent_config = "/home/stud-aamini/distributed-drl-coordination/inputs/config/drl/acktr/acktr_default_4-env.yaml"
-networks = "/home/stud-aamini/distributed-drl-coordination/inputs/networks/interroute-in2-eg1-rand-cap0-2.graphml"
-services = "/home/stud-aamini/distributed-drl-coordination/inputs/services/abc-start_delay0.yaml"
-sim_config = "/home/stud-aamini/distributed-drl-coordination/inputs/config/simulator/mmpp-12-8.yaml"
-training_duration = 100000
-seed = random.randint(0, 9999)
-
-params = Params(
-    seed,
-    agent_config,
-    sim_config,
-    networks,
-    services,
-    training_duration,
-    test_mode=None,
-    sim_seed=8443,
-    best=True
-)
 # define the environment
 if args.env_type == "routing":
     env = Routing(
@@ -455,11 +435,19 @@ if args.env_type == "routing":
     )
 elif args.env_type == "simple":
     env = SimpleEnvironment(env_var=args.env_var, random_topology=args.random_topology)
-
-
 elif args.env_type == "spr":
+    params = Params(
+        seed=args.seed,
+        agent_config="../distributed-drl-coordination/inputs/config/drl/acktr/acktr_default_4-env.yaml",
+        sim_config="../distributed-drl-coordination/inputs/config/simulator/mmpp-12-8.yaml",
+        network="../distributed-drl-coordination/inputs/networks/interroute-in2-eg1-rand-cap0-2.graphml",
+        services="../distributed-drl-coordination/inputs/services/abc-start_delay0.yaml",
+        training_duration=100000,
+        test_mode=None,
+        sim_seed=8443,
+        best=True
+    )
     env = SprEnv(params=params)
-
 else:
     raise ValueError(f"Unknown environment {args.env_type}")
 

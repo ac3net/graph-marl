@@ -1,3 +1,6 @@
+# Code adapted from Schneider et al. https://github.com/RealVNF/distributed-drl-coordination
+
+from env.environment import NetworkEnv
 import gym
 from spr_rl.params import Params
 from gym.spaces import Discrete, Box
@@ -17,11 +20,8 @@ def clock(env, name, tick, spr_env, sim_state):
         yield env.timeout(tick)
         current_time = env.now
         spr_env.timestamps.append(current_time)
-        spr_env.node_obs_ts.append(spr_env.get_node_observation())
-        spr_env.debug.append(spr_env.debug_func(sim_state))
-        spr_env.nodej.append(spr_env.node_adj(sim_state))
 
-class SprEnv(gym.Env):
+class SprEnv(NetworkEnv):
     """The main OpenAI Gym class. It encapsulates an environment with
     arbitrary behind-the-scenes dynamics. An environment can be
     partially or fully observed.
@@ -59,7 +59,7 @@ class SprEnv(gym.Env):
         self.spr_state = None
         self.node_state = None
         self.node_obs_ts = []
-        
+                
         self.debug =[]
         self.nodej =[]
         if not self.params.test_mode:
@@ -88,7 +88,6 @@ class SprEnv(gym.Env):
         self.node_and_neighbors = [self.flow.current_node_id]
 
         self.node_and_neighbors.extend([node_id for node_id in neighbor_node_ids])
-        sas = []
 
         # for i in (self.node_and_neighbors):
         #     print(self.node_and_neighbors)
@@ -112,7 +111,7 @@ class SprEnv(gym.Env):
         Returns:
             the node observation from current timestamp for each node
         """
-        
+        # TODO: Observations have to be adapted..
         self.node = node
 
         # get neighbor nodes
@@ -122,69 +121,69 @@ class SprEnv(gym.Env):
 
         self.node_and_neighbors.extend([node_id for node_id in neighbor_node_ids])
 
-        remaining_node_resources = np.full((self.params.node_resources_size, ), -1.0, dtype=np.float32)
+        # remaining_node_resources = np.full((self.params.node_resources_size, ), -1.0, dtype=np.float32)
 
-        for i, node_id in enumerate(self.node_and_neighbors):
-            node_remaining_cap = self.network.nodes[node_id]['remaining_cap']
+        # for i, node_id in enumerate(self.node_and_neighbors):
+        #     node_remaining_cap = self.network.nodes[node_id]['remaining_cap']
 
-            current_sf = self.flow.current_sf
-            if self.flow.forward_to_eg:
-                current_sf = self.sfcs[self.flow.sfc][-1]
-            resource_function = self.wrapper.simulator.params.sf_list[current_sf]['resource_function']
-            if not self.flow.forward_to_eg:
-                requested_resources = resource_function(self.flow.dr)
-            else:
-                requested_resources = 0
-            node_remaining_cap_norm = (node_remaining_cap - requested_resources) / self.params.max_node_cap
+        #     current_sf = self.flow.current_sf
+        #     if self.flow.forward_to_eg:
+        #         current_sf = self.sfcs[self.flow.sfc][-1]
+        #     resource_function = self.wrapper.simulator.params.sf_list[current_sf]['resource_function']
+        #     if not self.flow.forward_to_eg:
+        #         requested_resources = resource_function(self.flow.dr)
+        #     else:
+        #         requested_resources = 0
+        #     node_remaining_cap_norm = (node_remaining_cap - requested_resources) / self.params.max_node_cap
 
-            node_remaining_cap_norm = np.clip(node_remaining_cap_norm, -1.0, 1.0)
-            remaining_node_resources[i] = node_remaining_cap_norm
+        #     node_remaining_cap_norm = np.clip(node_remaining_cap_norm, -1.0, 1.0)
+        #     remaining_node_resources[i] = node_remaining_cap_norm
 
-        remaining_link_resources = np.full((self.params.link_resources_size, ), -1.0, dtype=np.float32)
-        for i, node_id in enumerate(neighbor_node_ids):
-            link_remaining_cap = self.network[node][node_id]['remaining_cap']
+        # remaining_link_resources = np.full((self.params.link_resources_size, ), -1.0, dtype=np.float32)
+        # for i, node_id in enumerate(neighbor_node_ids):
+        #     link_remaining_cap = self.network[node][node_id]['remaining_cap']
 
-            link_remaining_cap_norm = (link_remaining_cap - self.flow.dr) / self.params.max_link_caps[
-                node]
-            link_remaining_cap_norm = np.clip(link_remaining_cap_norm, -1.0, 1.0)
+        #     link_remaining_cap_norm = (link_remaining_cap - self.flow.dr) / self.params.max_link_caps[
+        #         node]
+        #     link_remaining_cap_norm = np.clip(link_remaining_cap_norm, -1.0, 1.0)
 
-            remaining_link_resources[i] = link_remaining_cap_norm
+        #     remaining_link_resources[i] = link_remaining_cap_norm
 
-        # If neighbor does not exist, set distance to -1
-        neighbors_dist_to_eg = np.full((self.params.neighbor_dist_to_eg, ), -1.0, dtype=np.float32)
-        for i, node_id in enumerate(neighbor_node_ids):
-            if self.flow.egress_node_id is not None:
-                # Check whether distance from current node to neighbor node should also be included
-                dist_to_node = self.network.graph['shortest_paths'][(node,
-                                                                     node_id)][1]
-                dist_to_eg = dist_to_node + self.network.graph['shortest_paths'][(
-                    node_id,
-                    self.flow.egress_node_id)][1]
-                neighbors_dist_to_eg[i] = (self.flow.ttl - dist_to_eg) / self.flow.ttl
-            else:
-                neighbors_dist_to_eg[i] = -1
+        # # If neighbor does not exist, set distance to -1
+        # neighbors_dist_to_eg = np.full((self.params.neighbor_dist_to_eg, ), -1.0, dtype=np.float32)
+        # for i, node_id in enumerate(neighbor_node_ids):
+        #     if self.flow.egress_node_id is not None:
+        #         # Check whether distance from current node to neighbor node should also be included
+        #         dist_to_node = self.network.graph['shortest_paths'][(node,
+        #                                                              node_id)][1]
+        #         dist_to_eg = dist_to_node + self.network.graph['shortest_paths'][(
+        #             node_id,
+        #             self.flow.egress_node_id)][1]
+        #         neighbors_dist_to_eg[i] = (self.flow.ttl - dist_to_eg) / self.flow.ttl
+        #     else:
+        #         neighbors_dist_to_eg[i] = -1
 
         # Component availability status
-        vnf_availability = np.full((self.params.vnf_status, ), -1.0, dtype=np.float32)
-        for i, node_id in enumerate(self.node_and_neighbors):
-            flow_sf = self.flow.current_sf
-            if flow_sf in self.network.nodes[node_id]['available_sf']:
-                vnf_availability[i] = 1
-            else:
-                vnf_availability[i] = 0
-        # Remaining flow TTL %
-        ttl = self.flow.ttl / self.flow.original_ttl
+        # vnf_availability = np.full((self.params.vnf_status, ), -1.0, dtype=np.float32)
+        # for i, node_id in enumerate(self.node_and_neighbors):
+        #     flow_sf = self.flow.current_sf
+        #     if flow_sf in self.network.nodes[node_id]['available_sf']:
+        #         vnf_availability[i] = 1
+        #     else:
+        #         vnf_availability[i] = 0
 
+        # TODO: Add actual node observation
         node_observation = np.concatenate(
             (
                 # flow_proc_percentage,
                 # ttl,
-                vnf_availability,   # not for each flow but for all of them
-                remaining_node_resources,
-                remaining_link_resources,
-                neighbors_dist_to_eg
+                # vnf_availability,   # not for each flow but for all of them
+                # remaining_node_resources,
+                # remaining_link_resources,
+                # neighbors_dist_to_eg
+                np.array([[1, 2, 3]])  # dummy data
             ),
-            axis=None
+            axis=0
         )
         return node_observation
 
@@ -199,11 +198,13 @@ class SprEnv(gym.Env):
 
         # self.network = sim_state.network
         node_obs = []
-
         for node in self.network:
             node_obs.append(self._node_observation(node))
-        # print(node_obs)
-        return node_obs
+
+        return np.array(node_obs)
+
+    def get_netmon_rounds_in_step(self):
+        return len(self.spr_env.timestamps)
 
     def get_num_nodes(self):
         """
@@ -221,7 +222,7 @@ class SprEnv(gym.Env):
         """
         return 1
 
-    def node_adj(self):
+    def get_nodes_adjacency(self):
         """
         Gets the node and each sim_state
 
@@ -236,11 +237,13 @@ class SprEnv(gym.Env):
             # i = self._get_nodes_adjacency(node, sim_state)[0][0]
             node_adjacency.append(self._get_nodes_adjacency(node))
 
-        node_adjacency = np.concatenate(node_adjacency, axis=0 )
-        # print(node_adjacency)
-        # print("sdasdsa")
+        node_adjacency = np.concatenate(node_adjacency, axis=0)
         return node_adjacency
 
+    def _get_node_id_int(self, node_id_str):
+        if node_id_str == 0:
+            return 0
+        return int(node_id_str[3:])
 
     def _get_nodes_adjacency(self, node) -> np.ndarray:
         """
@@ -256,13 +259,11 @@ class SprEnv(gym.Env):
         self.node_and_neighbors.extend([node_id for node_id in neighbor_node_ids])
         s1=[]
         for node in self.node_and_neighbors:
-            s1.append(int(node[3:]))
+            s1.append(self._get_node_id_int(node))
 
         for i in s1:
             adjacency[0][i] = 1
         return adjacency
-        # print("sdad")
-        # print(adjacency)
 
     def get_node_agent_matrix(self) -> np.ndarray:
         """
@@ -271,8 +272,9 @@ class SprEnv(gym.Env):
 
         :return: the node agent matrix of shape (n_nodes, n_agents)
         """
-
-        return np.eye(len(self.network), dtype=int)
+        agent_pos = np.zeros((len(self.network), 1), dtype=int)
+        agent_pos[self._get_node_id_int(self.flow.current_node_id)] = 1
+        return agent_pos
 
     def get_node_aux(self):
         """
@@ -299,6 +301,8 @@ class SprEnv(gym.Env):
             done (bool): whether the episode has ended, in which case further step() calls will return undefined results
             info (dict): contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
         """
+        action = action[0]
+        
         # Get flow information before action
         processing_index = self.last_flow.processing_index
         forward_to_eg = self.last_flow.forward_to_eg
@@ -308,6 +312,7 @@ class SprEnv(gym.Env):
         # Apply action
         nn_state, sim_state = self.wrapper.apply(action)
         new_flow = sim_state.flow
+        self.flow = new_flow
 
         sfc_len = len(sim_state.sfcs[self.last_flow.sfc])
 
@@ -379,8 +384,10 @@ class SprEnv(gym.Env):
         # print(self.node_observation(sim_state))
 
         self.timestamps.clear()
+        return nn_state[np.newaxis], self.get_agent_adjacency(), np.array([reward], dtype=float), done, {'sim_time': self.wrapper.simulator.env.now}
 
-        return nn_state, reward, done, {'sim_time': self.wrapper.simulator.env.now}
+    def get_agent_adjacency(self):
+        return np.array([1], dtype=np.int32)
 
     def reset(self):
         """Resets the state of the environment and returns an initial observation.
@@ -394,6 +401,8 @@ class SprEnv(gym.Env):
         else:
             sim_seed = self.params.sim_seed
         nn_state, sim_state = self.wrapper.init(sim_seed)
+        
+        self.flow = sim_state.flow
         self.spr_state = sim_state
         self.node_state = self.spr_state.network
         self.steps = 0
@@ -407,7 +416,7 @@ class SprEnv(gym.Env):
             self.process.interrupt()
         self.process = self.wrapper.simulator.env.process(clock(self.wrapper.simulator.env, 'ENV RESET', 0.05, self, self.spr_state))
 
-        return nn_state, {}
+        return nn_state[np.newaxis], self.get_agent_adjacency()
 
     @staticmethod
     def get_dist_to_eg(network, flow):
@@ -436,7 +445,7 @@ class SprEnv(gym.Env):
         """
         self.random_gen, seed = seeding.np_random()
         return [seed]
-    
+
     # def _my_callback(self):
     #     # env.run(until=env.timeout(1))
     #     print( "before", self.wrapper.simulator.env.now)
