@@ -8,7 +8,7 @@ from pathlib import Path
 from env.constants import EVAL_SEEDS
 from env.environment import reset_and_get_sizes
 from env.network import Network
-
+from spr_rl.params import Params
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -17,9 +17,12 @@ from eval import evaluate
 from replaybuffer import ReplayBuffer
 from model import DGN, DQNR, DQN, MLP, CommNet, NetMon
 from env.routing import Routing
+import random
+from sprinterface.state import SPRState
 
 from env.simple_environment import SimpleEnvironment
 from env.wrapper import NetMonWrapper
+from env.spr_env import SprEnv
 from policy import EpsilonGreedy
 from policy import ShortestPath
 from policy import RandomPolicy, SimplePolicy
@@ -46,7 +49,7 @@ parser.add_argument(
     "--env-type",
     type=str,
     help="The environment type",
-    choices=["routing", "simple"],
+    choices=["routing", "simple", "spr"],
     default="routing",
 )
 parser.add_argument(
@@ -422,6 +425,24 @@ network = Network(
     excluded_seeds=None if args.train_topology_allow_eval_seed else EVAL_SEEDS,
 )
 
+agent_config = "/home/stud-aamini/distributed-drl-coordination/inputs/config/drl/acktr/acktr_default_4-env.yaml"
+networks = "/home/stud-aamini/distributed-drl-coordination/inputs/networks/interroute-in2-eg1-rand-cap0-2.graphml"
+services = "/home/stud-aamini/distributed-drl-coordination/inputs/services/abc-start_delay0.yaml"
+sim_config = "/home/stud-aamini/distributed-drl-coordination/inputs/config/simulator/mmpp-12-8.yaml"
+training_duration = 100000
+seed = random.randint(0, 9999)
+
+params = Params(
+    seed,
+    agent_config,
+    sim_config,
+    networks,
+    services,
+    training_duration,
+    test_mode=None,
+    sim_seed=8443,
+    best=True
+)
 # define the environment
 if args.env_type == "routing":
     env = Routing(
@@ -434,6 +455,11 @@ if args.env_type == "routing":
     )
 elif args.env_type == "simple":
     env = SimpleEnvironment(env_var=args.env_var, random_topology=args.random_topology)
+
+
+elif args.env_type == "spr":
+    env = SprEnv(params=params)
+
 else:
     raise ValueError(f"Unknown environment {args.env_type}")
 
